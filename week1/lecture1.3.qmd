@@ -1,0 +1,141 @@
+---
+title: "Lecture 1.3"
+date: 2024-01-08
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+library(palmerpenguins)
+```
+
+## Tidy data
+```{r}
+# untidy data ----
+temp_data_wide <- tribble(
+  ~date, ~station1, ~station2,  ~station3,
+  "2023-10-01", 30.1, 29.8,  31.2,
+  "2023-11-01", 28.6, 29.1,  33.4,
+  "2023-12-01", 29.9, 28.5,  32.3
+)
+
+### let's make it tidy ---
+temp_data_long <- temp_data_wide %>% 
+  pivot_longer(cols = starts_with("station"),
+               names_to = "station_id",
+               values_to = "temp_c"
+               )
+```
+
+```{r}
+### some notes
+
+### use View() in console to take a look at the dataset in the viewer window (ex: View(penguins))
+### use unique(penguins$species) to see how many penguin species there are
+```
+
+
+## Plot 1
+```{r}
+### mapping color globally (within ggplot function)
+ggplot(data = penguins,
+       mapping = aes(x = bill_length_mm, 
+                     y = bill_depth_mm,
+                     color = species)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  scale_color_manual(values = c("darkorange", "purple", "cyan4"))
+### don't need "data = " and "mapping = " as long as they are in order
+
+### can map color locally (within geom layer)
+ggplot(data = penguins,
+       mapping = aes(x = bill_length_mm, 
+                     y = bill_depth_mm)) +
+  geom_point(aes(color = species)) +
+  geom_smooth(method = "lm")
+
+# piping into ggplot ---
+#penguins %>% 
+# ggplot(aes(x = bill_length_mm,
+#            y = bill_depth_mm))
+### same as above
+
+# ggplot() + 
+#   geom_point(data = penguins, 
+#              mapping = aes(x = bill_length_mm,
+#                            y = bill_depth_mm))
+### can individually specify by layer
+
+ggplot(penguins, aes(x = body_mass_g,
+                     y = flipper_length_mm,
+                     color = body_mass_g)) +
+  geom_point() +
+  scale_color_gradient(low = "#132B43", high = "#F7DD4C")
+```
+
+
+
+## Plot 2
+```{r}
+ggplot(penguins, aes(x = species)) +
+  geom_bar()
+
+### geom_bar default stat is count even when it's not a column in the data
+```
+
+Overriding geom_bar's stat:
+```{r}
+penguins_summary <- penguins %>% 
+  count(species)
+
+ggplot(penguins_summary, aes(x = species,
+                             y = n)) +
+  geom_bar(stat = "identity")
+### identity tells to map the height to the values in the n column
+```
+
+override default stat mapping:
+```{r}
+ggplot(penguins, aes(x = species, 
+                     y = after_stat(prop), ### prop = proportion
+                     group = 1)) + ### look at the dataset as a whole, not individual species
+  geom_bar()
+
+```
+
+### one example skipped - come back and fill in
+
+position adjustments
+```{r}
+ggplot(penguins, aes(x = species, fill = island)) +
+  geom_bar(position = position_dodge2(preserve = "single"))
+
+
+### fill for bar charts, color for bars and lines
+
+### positions for geom_bar
+# default = "stacked"
+# "fill" = makes equal proportion between species
+# "dodge" = puts them next to each other rather than stacked on top
+# preserving width of "single" element
+```
+
+
+coordinate systems + themes
+```{r}
+ggplot(penguins, aes(x = species)) +
+  geom_bar() +
+  # coord_cartesian() ### this is default
+  coord_flip() + #flips x and y axes
+  # coord_polar() # harder to read/understand
+  theme_classic() +
+  theme(
+    axis.title = element_text(size = 17,
+                              color = "purple")
+  )
+
+
+```
+
+### come back and plot the histogram

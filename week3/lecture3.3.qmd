@@ -1,0 +1,207 @@
+---
+title: "Lecture 3.3 Ticks!"
+name: "Rachel Spellenberg"
+---
+
+#Setup
+```{r}
+library(tidycensus)
+library(tidyverse)
+library(janitor)
+library(gghighlight)
+
+source(here::here("week3/KEYS.R"))
+census_api_key(censusKEY)
+
+lyme <- read_csv(here::here("week3/data/LD-Case-Counts-by-County-01-20.csv"))
+```
+
+## Wrangle
+```{r}
+# ----- lyme data -----
+
+lyme_clean <- lyme %>% 
+  
+  clean_names() %>% 
+  
+  #rename some columns
+  rename(county = ctyname, state = stname, status = ststatus) %>% 
+  
+  #tidying up
+  pivot_longer(cols = 6:25, names_to = "county_year", values_to = "reported_cases") %>% 
+  
+  #remove "cases" before year values
+  mutate(year = str_remove(county_year, pattern = "cases"),
+         year = as.factor(year)) # changing to factor rather than string
+  
+# ----- new df cases per state -----
+lyme_by_state <- lyme_clean %>% 
+  
+  group_by(year, state) %>% 
+  
+  summarise(total_cases = sum(reported_cases))
+
+# new df state population -----
+
+# get_estimates allows you to access the API
+us_state_pop <- get_estimates(geography = "state", 
+                              product = "population",
+                              year = 2019) %>% 
+  
+  filter(variable == "POP") %>% 
+  
+  select(state = NAME, population = value)
+
+# join!
+
+lyme_pop <- left_join(lyme_by_state, us_state_pop) %>% 
+  
+  # divide pop by 100k
+  mutate(pop100k = population/100000) %>% 
+  
+  #cases per 100k
+  mutate(cases_per100k = total_cases/pop100k)
+```
+
+## Line plot
+
+```{r}
+
+# highlight one group
+lyme_pop %>% 
+  
+  filter(year %in% c(2010:2020)) %>% 
+  
+  ggplot(aes(x = year, y = cases_per100k, group = state, color = state)) +
+  
+  geom_line() +
+  
+  # can layer geom_point() on top of geom_line()
+  
+  gghighlight::gghighlight(state == "New Jersey")
+
+# highlight based on conditional
+lyme_pop %>% 
+  
+  filter(year %in% c(2010:2020)) %>% 
+  
+  # group is almost always necessary for line plots
+  ggplot(aes(x = year, y = cases_per100k, group = state, color = state)) +
+  
+  geom_line() +
+  
+  # can layer geom_point() on top of geom_line()
+  
+  gghighlight::gghighlight(max(cases_per100k) > 100)
+
+# aspect ratio stuff ----
+
+lyme_pop %>% 
+  
+  filter(year %in% c(2010:2020)) %>% 
+  
+  filter(state == "Vermont") %>% 
+  
+  ggplot(aes(x = year, y = cases_per100k, group = state)) +
+  
+  geom_line() +
+  
+  #add tick marks to help decide aspect ratio
+  
+  # scale_y_continuous(breaks = seq(0, 190, by = 1)) +
+  
+  # ratio is y/x
+  coord_fixed(ratio = 1/50) +
+  
+  theme_light()
+  
+```
+
+## Area Plots
+
+```{r}
+
+# area chart one group
+
+lyme_pop %>% 
+  
+  filter(year %in% c(2010:2020)) %>% 
+  
+  filter(state == "Connecticut") %>% 
+  
+  ggplot(aes(x = year, y = cases_per100k, group = state, fill = state)) +
+  
+  #line graph with everything filled in beneath it. Not "area under the curve" or anything. The only thing that matters is the top line
+  geom_area() +
+  
+  scale_fill_manual(values = c("darkblue")) +
+  
+  theme(legend.position = "none") +
+  
+  # expand to help fill plot in all directions!
+  scale_x_discrete(expand = c(0, 0)) +
+  
+  scale_y_continuous(expand = c(0,0))
+  
+  theme_minimal() 
+  
+  
+# stacked area chart ----
+lyme_pop %>% 
+  
+  filter(year %in% c(2010:2020)) %>% 
+  
+  filter(state %in% c("Maine", "Rhode Island", "New Hampshire", "Vermont")) %>% 
+  
+  ggplot(aes(x = year, y = cases_per100k, group = state, fill = state)) +
+  
+  # problem with reading this plot is that you think the peak is the absolute value, not in relation to the groups beneath it. You have to do some subtraction to get the incidents 
+  geom_area() +
+    
+  theme_light()
+  
+
+# here's a better alternative - postion = fill
+lyme_pop %>% 
+  
+  filter(year %in% c(2010:2020)) %>% 
+  
+  filter(state %in% c("Maine", "Rhode Island", "New Hampshire", "Vermont")) %>% 
+  
+  ggplot(aes(x = year, y = cases_per100k, group = state, fill = state)) +
+  
+  # problem with reading this plot is that you think the peak is the absolute value, not in relation to the groups beneath it. You have to do some subtraction to get the incidents 
+  # geom_area(position = "fill") +
+  
+  # reverse color/factor order
+  geom_area(position = position_fill(reverse = TRUE)) +
+  
+  # scale is the number you multiple your y axis by
+  scale_y_continuous(labels = scales::label_percent(scale = 100))
+    
+  theme_light()  
+  
+# you'll want to plot your most important data on the bottom because it is the easiest to read on the axis
+  
+
+# line chart version ----
+lyme_pop %>% 
+  
+  filter(year %in% c(2010:2020)) %>% 
+  
+  filter(state %in% c("Maine", "Rhode Island", "New Hampshire", "Vermont")) %>% 
+  
+  ggplot(aes(x = year, y = cases_per100k, group = state, color = state)) +
+  
+  geom_line() +
+    
+  facet_wrap(~state)  
+  
+# you'll want to plot your most important data on the bottom because it is the easiest to read on the axis
+```
+
+
+
+
+
+

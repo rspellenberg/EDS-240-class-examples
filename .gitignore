@@ -47,3 +47,8 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+/week*/data/
+
+/week3/KEYS.R
+
